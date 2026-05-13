@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useDebouncedCallback } from 'use-debounce';
 
 import SearchBox from '../SearchBox/SearchBox';
@@ -8,43 +8,26 @@ import NoteList from '../NoteList/NoteList';
 import Modal from '../Modal/Modal';
 import NoteForm from '../NoteForm/NoteForm';
 
-import { fetchNotes, createNote, deleteNote } from '../../services/noteService';
-import type { CreateNotePayload } from '../../types/note';
+import { fetchNotes } from '../../services/noteService';
 import css from './App.module.css';
 
 export default function App() {
   const [page, setPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const queryClient = useQueryClient();
 
   const handleSearch = useDebouncedCallback((value: string) => {
     setSearchTerm(value);
     setPage(1);
   }, 500);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['notes', page, searchTerm],
     queryFn: () => fetchNotes(page, 12, searchTerm),
     placeholderData: keepPreviousData,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (newNote: CreateNotePayload) => createNote(newNote),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      setIsModalOpen(false);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteNote(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-    },
-  });
-
-  const notes = data?.data ?? [];
+  const notes = data?.notes ?? [];
   const totalPages = data?.totalPages ?? 0;
 
   return (
@@ -65,18 +48,25 @@ export default function App() {
         </button>
       </header>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && <p style={{ textAlign: 'center', marginTop: '20px' }}>Loading notes...</p>}
       
-      {notes.length > 0 && !isLoading && (
-        <NoteList notes={notes} onDelete={(id) => deleteMutation.mutate(id)} />
+      {isError && (
+        <p style={{ textAlign: 'center', color: 'red', marginTop: '20px' }}>
+          Error loading notes.
+        </p>
+      )}
+      
+      {notes.length > 0 && !isLoading && !isError && (
+        <NoteList notes={notes} />
+      )}
+
+      {notes.length === 0 && !isLoading && !isError && (
+        <p style={{ textAlign: 'center', marginTop: '20px' }}>No notes found.</p>
       )}
 
       {isModalOpen && (
         <Modal onClose={() => setIsModalOpen(false)}>
-          <NoteForm 
-            onSubmit={(note) => createMutation.mutate(note)} 
-            onCancel={() => setIsModalOpen(false)} 
-          />
+          <NoteForm onCancel={() => setIsModalOpen(false)} />
         </Modal>
       )}
     </div>

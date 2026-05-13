@@ -2,9 +2,7 @@ import axios from 'axios';
 import type { Note, CreateNotePayload } from '../types/note';
 
 export interface FetchNotesResponse {
-  data: Note[];
-  page: number;
-  perPage: number;
+  notes: Note[];
   totalPages: number;
 }
 
